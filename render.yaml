@@ -8,3 +8,4 @@ services:
     plan: free
     healthCheckPath: /
     envVars: []
+    postDeployCommand: "bash scripts/postdeploy.sh"
