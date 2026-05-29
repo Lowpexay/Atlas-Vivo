@@ -1,0 +1,1 @@
+web: gunicorn atlas_vivo.wsgi --workers 2 --bind 0.0.0.0:$PORT
