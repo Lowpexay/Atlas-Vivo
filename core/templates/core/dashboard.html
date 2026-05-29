@@ -11,7 +11,15 @@
 
     <div class="session-bar">
       <span>Olá, {{ request.user.username }}</span>
-      <a href="{% url 'logout' %}">Sair</a>
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button class="secondary-btn" type="submit">Sair</button>
+      </form>
+    </div>
+
+    <div class="place-actions">
+      <button id="favorite-btn" class="secondary-btn">Favoritar</button>
+      <a href="{% url 'favorites_page' %}" class="secondary-link">Meus favoritos</a>
     </div>
 
     <form id="search-form" class="search-form">
@@ -66,6 +74,10 @@
     lookupUrl: "{% url 'lookup_point' %}",
     suggestUrl: "{% url 'suggest_location' %}",
     initialPlace: "Brasil"
+    ,
+    favoriteUrl: "{% url 'add_favorite' %}"
+    ,
+    favoriteCheckUrl: "{% url 'check_favorite' %}"
   };
 </script>
 {% endblock %}

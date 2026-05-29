@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load l10n %}
+{% block title %}Favoritos | Atlas Vivo{% endblock %}
+{% block content %}
+<main class="favorites-page">
+  <aside class="sidebar">
+    <div class="brand-block">
+      <p class="eyebrow">Atlas Vivo</p>
+      <h1>Favoritos</h1>
+      <p class="lede">Lugares que você favoritou no mapa.</p>
+    </div>
+    <div class="session-bar">
+      <span>Olá, {{ request.user.username }}</span>
+       <form method="post" action="{% url 'logout' %}">
+         {% csrf_token %}
+         <button class="secondary-btn" type="submit">Sair</button>
+       </form>
+    </div>
+    <section class="info-card">
+      <div class="fav-header">
+        <h3>Seus favoritos</h3>
+        <a class="secondary-btn" href="{% url 'dashboard' %}">Voltar ao mapa</a>
+      </div>
+      <ul class="favorites-list">
+        {% for f in favorites %}
+          <li class="favorite-item">
+            <div class="fav-info">
+              <strong>{{ f.name }}</strong>
+              <div class="fav-meta">{{ f.city }}{% if f.city and f.region %} — {{ f.region }}{% endif %}{% if f.country %} • {{ f.country }}{% endif %}</div>
+              <div class="fav-meta">Coords: {{ f.lat|floatformat:5|unlocalize }}, {{ f.lon|floatformat:5|unlocalize }}</div>
+            </div>
+            <div class="fav-actions">
+              <a class="primary-btn" href="{% url 'dashboard' %}?lat={{ f.lat|unlocalize }}&lon={{ f.lon|unlocalize }}&label={{ f.name|urlencode }}">Ir para</a>
+              <form method="post" action="{% url 'remove_favorite' f.id %}">
+                {% csrf_token %}
+                <button class="danger-btn" type="submit">Remover</button>
+              </form>
+            </div>
+          </li>
+        {% empty %}
+          <li>Nenhum favorito ainda.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </aside>
+
+  <section class="map-pane">
+    <div class="map-canvas placeholder">Volte ao mapa para explorar</div>
+  </section>
+</main>
+{% endblock %}

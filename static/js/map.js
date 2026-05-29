@@ -1,23 +1,28 @@
 const config = window.APP_CONFIG || {};
 
-const map = L.map('map', {
-  worldCopyJump: false,
-  zoomControl: true,
-  scrollWheelZoom: true,
-  doubleClickZoom: true,
-  minZoom: 2,
-}).setView([10, 0], 2);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; OpenStreetMap contributors',
-  noWrap: true,
-}).addTo(map);
-
-map.zoomControl.setPosition('topright');
-map.touchZoom.enable();
-
+const mapEl = document.getElementById('map');
+let map = null;
 let marker = null;
+if (mapEl) {
+  map = L.map('map', {
+    worldCopyJump: false,
+    zoomControl: true,
+    scrollWheelZoom: true,
+    doubleClickZoom: true,
+    minZoom: 2,
+  }).setView([10, 0], 2);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors',
+    noWrap: true,
+  }).addTo(map);
+
+  map.zoomControl.setPosition('topright');
+  map.touchZoom.enable();
+} else {
+  console.warn('Map element not found; skipping map initialization');
+}
 
 const placeName = document.getElementById('place-name');
 const placeCountry = document.getElementById('place-country');
@@ -34,6 +39,9 @@ const countryFlag = document.getElementById('country-flag');
 const countryRegion = document.getElementById('country-region');
 const countryTimezone = document.getElementById('country-timezone');
 const forecastList = document.getElementById('forecast-list');
+const favoriteBtn = document.getElementById('favorite-btn');
+
+let currentPlace = null;
 
 function setWeather(weather) {
   const units = weather.units || {};
@@ -147,6 +155,7 @@ async function loadSuggestions(query) {
 }
 
 function updateMapPoint(lat, lon, label) {
+  if (!map) return; // no-op when map not initialized (e.g., favorites page)
   if (marker) {
     marker.remove();
   }
@@ -156,6 +165,9 @@ function updateMapPoint(lat, lon, label) {
 
 function syncPlace(payload) {
   const location = payload.location;
+  const target = payload.clicked
+    ? { lat: payload.clicked.lat, lon: payload.clicked.lon }
+    : { lat: location.lat, lon: location.lon };
   placeName.textContent = location.display_name || location.query || 'Lugar selecionado';
   placeCountry.textContent = location.country ? `País: ${location.country}` : '';
   clickedPoint.textContent = payload.clicked
@@ -163,7 +175,75 @@ function syncPlace(payload) {
     : `Coordenadas: ${location.lat.toFixed(5)}, ${location.lon.toFixed(5)}`;
   setWeather(payload.weather || {});
   setCountry(payload.country_profile || {});
-  updateMapPoint(location.lat, location.lon, location.display_name || location.query);
+  updateMapPoint(target.lat, target.lon, location.display_name || location.query);
+  currentPlace = {
+    name: location.display_name || location.query || 'Lugar selecionado',
+    lat: parseFloat(target.lat),
+    lon: parseFloat(target.lon),
+    clicked: payload.clicked || null,
+  };
+  // check if already favorited for this user
+  if (config.favoriteCheckUrl && currentPlace.lat && currentPlace.lon) {
+    (async () => {
+      try {
+        const url = new URL(config.favoriteCheckUrl, window.location.origin);
+        url.searchParams.set('lat', currentPlace.lat);
+        url.searchParams.set('lon', currentPlace.lon);
+        const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (resp.ok) {
+          const p = await resp.json();
+          setFavoriteState(!!p.favorited);
+        } else {
+          setFavoriteState(false);
+        }
+      } catch (e) {
+        // ignore
+        setFavoriteState(false);
+      }
+    })();
+  } else {
+    setFavoriteState(false);
+  }
+}
+
+function setFavoriteState(isFav) {
+  if (!favoriteBtn) return;
+  if (isFav) {
+    favoriteBtn.classList.add('favorited');
+    favoriteBtn.textContent = 'Favoritado ✓';
+  } else {
+    favoriteBtn.classList.remove('favorited');
+    favoriteBtn.textContent = 'Favoritar';
+  }
+}
+
+function getCookie(name) {
+  const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return v ? v.pop() : '';
+}
+
+if (favoriteBtn) {
+  favoriteBtn.addEventListener('click', async () => {
+    if (!currentPlace) return alert('Nenhum lugar selecionado para favoritar.');
+    if (!config.favoriteUrl) return alert('URL de favoritos não disponível.');
+    try {
+      const url = new URL(config.favoriteUrl, window.location.origin);
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken'),
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ name: currentPlace.name, lat: currentPlace.lat, lon: currentPlace.lon }),
+      });
+      const payload = await resp.json();
+      if (!resp.ok) throw new Error(payload.error || 'Falha ao favoritar');
+      setFavoriteState(true);
+    } catch (err) {
+      alert(err.message || 'Erro ao favoritar');
+    }
+  });
 }
 
 async function fetchJson(url) {
@@ -182,12 +262,17 @@ async function loadPlace(query) {
   syncPlace(payload);
 }
 
-async function loadPoint(lat, lon) {
+async function loadPoint(lat, lon, label) {
   const url = new URL(config.lookupUrl, window.location.origin);
   url.searchParams.set('lat', lat);
   url.searchParams.set('lon', lon);
+  if (label) {
+    url.searchParams.set('label', label);
+  }
   const payload = await fetchJson(url);
   syncPlace(payload);
+  // remove query params so refresh doesn't keep the last favorite
+  window.history.replaceState({}, document.title, window.location.pathname);
 }
 
 document.getElementById('search-form').addEventListener('submit', async (event) => {
@@ -219,15 +304,40 @@ document.getElementById('place-search').addEventListener('input', () => {
   }, 300);
 });
 
-map.on('click', async (event) => {
-  try {
-    await loadPoint(event.latlng.lat, event.latlng.lng);
-  } catch (error) {
-    placeName.textContent = 'Ponto sem identificação';
-    clickedPoint.textContent = error.message;
-  }
-});
+if (map) {
+  map.on('click', async (event) => {
+    try {
+      await loadPoint(event.latlng.lat, event.latlng.lng);
+    } catch (error) {
+      placeName.textContent = 'Ponto sem identificação';
+      clickedPoint.textContent = error.message;
+    }
+  });
+}
 
-loadPlace(config.initialPlace || 'Brasil').catch(() => {
-  placeName.textContent = 'Use a busca para começar';
-});
+// if lat/lon in URL, load that point; otherwise load initial place
+const params = new URLSearchParams(window.location.search);
+const lat = params.get('lat');
+const lon = params.get('lon');
+if (lat && lon) {
+  loadPoint(lat, lon).catch(() => {
+    placeName.textContent = 'Use a busca para começar';
+  });
+} else {
+  const randomSeeds = [
+    { label: 'Reykjavik', lat: 64.1466, lon: -21.9426 },
+    { label: 'Tokyo', lat: 35.6762, lon: 139.6503 },
+    { label: 'Cape Town', lat: -33.9249, lon: 18.4241 },
+    { label: 'Vancouver', lat: 49.2827, lon: -123.1207 },
+    { label: 'Sydney', lat: -33.8688, lon: 151.2093 },
+    { label: 'Cairo', lat: 30.0444, lon: 31.2357 },
+    { label: 'Buenos Aires', lat: -34.6037, lon: -58.3816 },
+    { label: 'Lisbon', lat: 38.7223, lon: -9.1393 },
+    { label: 'Lima', lat: -12.0464, lon: -77.0428 },
+    { label: 'Bangkok', lat: 13.7563, lon: 100.5018 },
+  ];
+  const seed = randomSeeds[Math.floor(Math.random() * randomSeeds.length)];
+  loadPoint(seed.lat, seed.lon, seed.label).catch(() => {
+    placeName.textContent = 'Use a busca para começar';
+  });
+}
