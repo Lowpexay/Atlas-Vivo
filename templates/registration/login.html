@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Entrar | Atlas Vivo{% endblock %}
+{% block content %}
+<main class="auth-card">
+  <div>
+    <p class="eyebrow">Atlas Vivo</p>
+    <h1>Entre para explorar o mapa do mundo</h1>
+    <p class="lede">Pesquise países, clique em qualquer ponto e veja localização, clima e imagens relacionadas.</p>
+  </div>
+  <form method="post" class="auth-form">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="primary-btn" type="submit">Entrar</button>
+  </form>
+  <p class="auth-link">Não tem conta? <a href="{% url 'register' %}">Criar cadastro</a></p>
+</main>
+{% endblock %}

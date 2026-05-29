@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Cadastro | Atlas Vivo{% endblock %}
+{% block content %}
+<main class="auth-card">
+  <div>
+    <p class="eyebrow">Atlas Vivo</p>
+    <h1>Criar conta</h1>
+    <p class="lede">Cadastre-se para acessar o mapa interativo e salvar sua exploração visual do planeta.</p>
+  </div>
+  <form method="post" class="auth-form">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="primary-btn" type="submit">Cadastrar</button>
+  </form>
+  <p class="auth-link">Já tem conta? <a href="{% url 'login' %}">Entrar</a></p>
+</main>
+{% endblock %}

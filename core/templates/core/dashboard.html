@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard | Atlas Vivo{% endblock %}
+{% block content %}
+<main class="dashboard">
+  <aside class="sidebar">
+    <div class="brand-block">
+      <p class="eyebrow">Atlas Vivo</p>
+      <h1>Exploração geográfica em tempo real</h1>
+      <p class="lede">Clique no mapa ou pesquise um lugar para ver país, coordenadas, clima e imagens.</p>
+    </div>
+
+    <div class="session-bar">
+      <span>Olá, {{ request.user.username }}</span>
+      <a href="{% url 'logout' %}">Sair</a>
+    </div>
+
+    <form id="search-form" class="search-form">
+      <label for="place-search">Pesquisar lugar</label>
+      <div class="search-row">
+        <input id="place-search" name="q" type="text" placeholder="Ex.: Lisboa, Japão, Machu Picchu" autocomplete="off">
+        <button class="primary-btn" type="submit">Buscar</button>
+      </div>
+    </form>
+
+    <section class="info-card">
+      <h2 id="place-name">Brasil</h2>
+      <p id="place-country" class="muted"></p>
+      <p id="clicked-point" class="highlight"></p>
+      <div class="metric-grid">
+        <article><span>Temperatura</span><strong id="weather-temp">--</strong></article>
+        <article><span>Umidade</span><strong id="weather-humidity">--</strong></article>
+        <article><span>Pressão</span><strong id="weather-pressure">--</strong></article>
+        <article><span>Vento</span><strong id="weather-wind">--</strong></article>
+      </div>
+    </section>
+
+    <section class="images-panel">
+      <h3>Imagens do lugar</h3>
+      <figure class="featured-image-card">
+        <img id="featured-image" alt="Imagem principal do lugar">
+        <figcaption id="featured-caption" class="muted">Sem imagem selecionada</figcaption>
+      </figure>
+      <div id="image-grid" class="image-grid"></div>
+    </section>
+  </aside>
+
+  <section class="map-pane">
+    <div id="map" class="map-canvas"></div>
+  </section>
+</main>
+
+<script>
+  window.APP_CONFIG = {
+    searchUrl: "{% url 'search_location' %}",
+    lookupUrl: "{% url 'lookup_point' %}",
+    initialPlace: "Brasil"
+  };
+</script>
+{% endblock %}
