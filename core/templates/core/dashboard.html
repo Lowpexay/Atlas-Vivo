@@ -17,9 +17,10 @@
     <form id="search-form" class="search-form">
       <label for="place-search">Pesquisar lugar</label>
       <div class="search-row">
-        <input id="place-search" name="q" type="text" placeholder="Ex.: Lisboa, Japão, Machu Picchu" autocomplete="off">
+        <input id="place-search" name="q" type="text" placeholder="Ex.: Lisboa, Japão, Machu Picchu" autocomplete="off" list="place-suggestions">
         <button class="primary-btn" type="submit">Buscar</button>
       </div>
+      <datalist id="place-suggestions"></datalist>
     </form>
 
     <section class="info-card">
@@ -33,14 +34,24 @@
         <article><span>Vento</span><strong id="weather-wind">--</strong></article>
       </div>
     </section>
+    <section class="info-card forecast-panel">
+      <h3>Previsão de 7 dias</h3>
+      <div id="forecast-list" class="forecast-list"></div>
+    </section>
 
-    <section class="images-panel">
-      <h3>Imagens do lugar</h3>
-      <figure class="featured-image-card">
-        <img id="featured-image" alt="Imagem principal do lugar">
-        <figcaption id="featured-caption" class="muted">Sem imagem selecionada</figcaption>
-      </figure>
-      <div id="image-grid" class="image-grid"></div>
+    <section class="info-card country-panel">
+      <h3>Dados do país</h3>
+      <div class="country-grid">
+        <article><span>Capital</span><strong id="country-capital">--</strong></article>
+        <article><span>Moeda</span><strong id="country-currency">--</strong></article>
+        <article><span>Idioma</span><strong id="country-language">--</strong></article>
+        <article><span>População</span><strong id="country-population">--</strong></article>
+      </div>
+      <div class="country-meta">
+        <p><span>Bandeira</span><img id="country-flag" alt="Bandeira do país"></p>
+        <p><span>Região</span><strong id="country-region">--</strong></p>
+        <p><span>Fuso</span><strong id="country-timezone">--</strong></p>
+      </div>
     </section>
   </aside>
 
@@ -53,6 +64,7 @@
   window.APP_CONFIG = {
     searchUrl: "{% url 'search_location' %}",
     lookupUrl: "{% url 'lookup_point' %}",
+    suggestUrl: "{% url 'suggest_location' %}",
     initialPlace: "Brasil"
   };
 </script>

@@ -60,6 +60,14 @@ body::before {
   box-shadow: var(--shadow);
 }
 
+/* make sidebar sticky with internal scroll so country+forecast remain visible */
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: auto;
+}
+
 .map-pane {
   position: relative;
   min-height: 100vh;
@@ -232,6 +240,213 @@ input:focus {
   font-size: 0.82rem;
   color: var(--muted);
   margin-top: 6px;
+}
+
+/* compact forecast list */
+.forecast-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.forecast-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.forecast-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(12,10,20,0.45);
+  border: 1px solid var(--border);
+}
+
+.forecast-card .fc-icon {
+  font-size: 1.6rem;
+  width: 46px;
+  text-align: center;
+}
+
+.forecast-card .fc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fc-date { font-size: 0.96rem; }
+.fc-label { color: var(--muted); font-size: 0.82rem; }
+.fc-values { display:flex; gap:10px; align-items:center; font-size:0.92rem; color:var(--text); }
+.fc-temp { font-weight:700; }
+.fc-rain { color:var(--muted); font-size:0.84rem; }
+
+.country-grid article {
+  padding: 10px;
+  border-radius: 12px;
+}
+
+/* compact forecast cards inside the forecast panel */
+.forecast-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+  align-items: start;
+  /* make rows have equal height so cards align */
+  grid-auto-rows: 1fr;
+}
+
+.forecast-card {
+  /* visually consistent with other metric panels but allow content to expand */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(26, 17, 46, 0.72); /* same as metric-grid article */
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+  min-height: 96px;
+  /* stretch to fill grid row so all cards in a row have same height */
+  height: 100%;
+}
+
+.forecast-card .fc-icon {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+
+.forecast-card .fc-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.forecast-card .fc-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.forecast-card .fc-date {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.forecast-card .fc-label {
+  color: var(--muted);
+  font-size: 0.70rem;
+  margin-top: 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.forecast-card .fc-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.forecast-card .fc-values {
+  text-align: right;
+}
+
+.forecast-card .fc-temp {
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 480px) {
+  /* hide label on very small screens to save space */
+  .forecast-card .fc-label { display: none; }
+  .forecast-card { padding: 6px; min-height: 76px; }
+}
+
+/* ensure forecast panel has comfortable inner padding */
+.forecast-panel.info-card {
+  padding: 14px;
+}
+
+.forecast-card .fc-rain {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+@media (min-width: 780px) {
+  .forecast-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .forecast-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sidebar { padding: 22px; }
+}
+
+/* standardized label/value pairs for country and metric grids */
+.country-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.country-grid article span,
+.metric-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin-bottom: 6px;
+}
+
+.country-grid article strong,
+.metric-grid strong {
+  display: block;
+  font-size: 1.08rem;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+/* country meta (flag, region, timezone) */
+.country-meta {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.country-meta p {
+  margin: 0;
+}
+
+.country-meta p span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin-bottom: 8px;
+}
+
+.country-meta p img {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  display: block;
 }
 
 .footer-actions {

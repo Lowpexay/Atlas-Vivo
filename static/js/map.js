@@ -26,44 +26,124 @@ const weatherTemp = document.getElementById('weather-temp');
 const weatherHumidity = document.getElementById('weather-humidity');
 const weatherPressure = document.getElementById('weather-pressure');
 const weatherWind = document.getElementById('weather-wind');
-const featuredImage = document.getElementById('featured-image');
-const featuredCaption = document.getElementById('featured-caption');
-const imageGrid = document.getElementById('image-grid');
+const countryCapital = document.getElementById('country-capital');
+const countryCurrency = document.getElementById('country-currency');
+const countryLanguage = document.getElementById('country-language');
+const countryPopulation = document.getElementById('country-population');
+const countryFlag = document.getElementById('country-flag');
+const countryRegion = document.getElementById('country-region');
+const countryTimezone = document.getElementById('country-timezone');
+const forecastList = document.getElementById('forecast-list');
 
 function setWeather(weather) {
-  weatherTemp.textContent = weather.temperature ?? '--';
-  weatherHumidity.textContent = weather.humidity ?? '--';
-  weatherPressure.textContent = weather.pressure ?? '--';
-  weatherWind.textContent = weather.wind_speed ?? '--';
+  const units = weather.units || {};
+  const tempUnit = (units.temperature && units.temperature.symbol) || '°C';
+  const humUnit = (units.humidity && units.humidity.symbol) || '%';
+  const presUnit = (units.pressure && units.pressure.symbol) || 'hPa';
+  const windUnit = (units.wind_speed && units.wind_speed.symbol) || 'm/s';
+
+  const round = (v) => (typeof v === 'number' ? Math.round(v) : v ?? '--');
+  weatherTemp.textContent = `${round(weather.temperature)} ${tempUnit}`;
+  weatherHumidity.textContent = `${weather.humidity ?? '--'} ${humUnit}`;
+  weatherPressure.textContent = `${weather.pressure ?? '--'} ${presUnit}`;
+  weatherWind.textContent = `${weather.wind_speed ?? '--'} ${windUnit}`;
+
+  forecastList.innerHTML = '';
+  const items = (weather.forecast || []);
+  items.forEach((day) => {
+    const card = document.createElement('article');
+    card.className = 'forecast-card';
+    const date = new Date(`${day.date}T00:00:00`);
+
+        const { icon, label } = mapWeatherCode(day.weather_code);
+        const ftempUnit = (units.forecast_temp && units.forecast_temp.symbol) || tempUnit;
+        
+        // put human label in title for accessibility but do not render inline
+        card.title = label || '';
+        
+        card.innerHTML = `
+          <div class="fc-icon">${icon}</div>
+          <div class="fc-body">
+            <div class="fc-date"><strong>${date.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}</strong></div>
+            <div class="fc-values">
+              <div class="fc-temp">${round(day.high)}${ftempUnit} / ${round(day.low)}${ftempUnit}</div>
+              <div class="fc-rain">Chuva: ${day.rain_probability ?? '--'}%</div>
+            </div>
+          </div>
+        `;
+    forecastList.appendChild(card);
+  });
 }
 
-function setImages(images) {
-  imageGrid.innerHTML = '';
-  if (!images || !images.length) {
-    featuredImage.removeAttribute('src');
-    featuredCaption.textContent = 'Sem imagens encontradas para este local.';
-    imageGrid.innerHTML = '<p class="muted">Sem imagens encontradas para este local.</p>';
-    return;
+function mapWeatherCode(code) {
+  // Simple mapping of Open-Meteo weather codes to emoji + label
+  const map = {
+    0: ['☀️', 'Céu limpo'],
+    1: ['🌤️', 'Pouco nublado'],
+    2: ['⛅', 'Parcialmente nublado'],
+    3: ['☁️', 'Nublado'],
+    45: ['🌫️', 'Nevoeiro'],
+    48: ['🌫️', 'Nevoeiro gelado'],
+    51: ['🌦️', 'Garoa leve'],
+    53: ['🌦️', 'Garoa moderada'],
+    55: ['🌧️', 'Garoa forte'],
+    61: ['🌧️', 'Chuva fraca'],
+    63: ['🌧️', 'Chuva'],
+    65: ['🌧️', 'Chuva forte'],
+    71: ['❄️', 'Neve fraca'],
+    73: ['❄️', 'Neve'],
+    75: ['❄️', 'Neve forte'],
+    80: ['🌦️', 'Chuva (passeios)'],
+    81: ['🌧️', 'Chuva (frequente)'],
+    82: ['🌧️', 'Chuva intensa'],
+    95: ['⛈️', 'Tempestade'],
+    96: ['⛈️', 'Tempestade com granizo'],
+    99: ['⛈️', 'Tempestade severa'],
+  };
+  const entry = map[code] || ['❓', 'Indeterminado'];
+  return { icon: entry[0], label: entry[1] };
+}
+
+function formatNumber(value) {
+  return value ? new Intl.NumberFormat('pt-BR').format(value) : '--';
+}
+
+function setCountry(country) {
+  if (!country) return;
+  countryCapital.textContent = country?.capital || '--';
+  countryCurrency.textContent = (country?.currencies || []).join(', ') || '--';
+  countryLanguage.textContent = (country?.languages || []).join(', ') || '--';
+  countryPopulation.textContent = formatNumber(country?.population);
+  countryRegion.textContent = [country?.region, country?.subregion].filter(Boolean).join(' • ') || '--';
+  countryTimezone.textContent = (country?.timezones || []).join(', ') || '--';
+  if (countryFlag) {
+    countryFlag.src = country?.flag || '';
+    countryFlag.alt = country?.name ? `Bandeira de ${country.name}` : 'Bandeira do país';
+    countryFlag.style.display = country?.flag ? 'block' : 'none';
   }
+}
+// suggestions (datalist)
+const suggestionsList = document.getElementById('place-suggestions');
+let suggestionTimer = null;
 
-  const [primaryImage, ...restImages] = images;
-  featuredImage.src = primaryImage.url;
-  featuredImage.alt = primaryImage.title || 'Imagem principal do local';
-  featuredCaption.textContent = primaryImage.title || 'Imagem principal';
-
-  restImages.forEach((image) => {
-    const figure = document.createElement('figure');
-    const link = document.createElement('a');
-    link.href = image.page_url || image.url;
-    link.target = '_blank';
-    link.rel = 'noreferrer';
-    link.innerHTML = `<img src="${image.url}" alt="${image.title || 'Imagem do local'}">`;
-    const caption = document.createElement('figcaption');
-    caption.textContent = image.title || 'Imagem relacionada';
-    figure.appendChild(link);
-    figure.appendChild(caption);
-    imageGrid.appendChild(figure);
+function setSuggestions(items) {
+  if (!suggestionsList) return;
+  suggestionsList.innerHTML = '';
+  (items || []).forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.display_name;
+    suggestionsList.appendChild(option);
   });
+}
+
+async function loadSuggestions(query) {
+  if (!config.suggestUrl) return;
+  const url = new URL(config.suggestUrl, window.location.origin);
+  url.searchParams.set('q', query);
+  const response = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!response.ok) return;
+  const payload = await response.json();
+  setSuggestions(payload.suggestions || []);
 }
 
 function updateMapPoint(lat, lon, label) {
@@ -82,7 +162,7 @@ function syncPlace(payload) {
     ? `Você clicou em: ${payload.clicked.lat.toFixed(5)}, ${payload.clicked.lon.toFixed(5)}`
     : `Coordenadas: ${location.lat.toFixed(5)}, ${location.lon.toFixed(5)}`;
   setWeather(payload.weather || {});
-  setImages(payload.images || []);
+  setCountry(payload.country_profile || {});
   updateMapPoint(location.lat, location.lon, location.display_name || location.query);
 }
 
@@ -123,6 +203,20 @@ document.getElementById('search-form').addEventListener('submit', async (event) 
     placeName.textContent = 'Local não encontrado';
     clickedPoint.textContent = error.message;
   }
+});
+
+document.getElementById('place-search').addEventListener('input', () => {
+  const value = document.getElementById('place-search').value.trim();
+  if (suggestionTimer) {
+    clearTimeout(suggestionTimer);
+  }
+  if (!value) {
+    setSuggestions([]);
+    return;
+  }
+  suggestionTimer = setTimeout(() => {
+    loadSuggestions(value).catch(() => {});
+  }, 300);
 });
 
 map.on('click', async (event) => {

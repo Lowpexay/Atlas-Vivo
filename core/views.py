@@ -6,7 +6,7 @@ from django.shortcuts import redirect, render
 from django.contrib.auth import logout
 from django.views import View
 
-from .services import geocode_place, image_results, reverse_geocode, weather_for_location
+from .services import geocode_place, reverse_geocode, weather_for_location, country_profile_for_location, place_suggestions
 
 
 class AppLoginView(LoginView):
@@ -52,11 +52,11 @@ def search_location(request):
 		return JsonResponse({'error': 'Local não encontrado.'}, status=404)
 
 	weather = weather_for_location(location['lat'], location['lon'])
-	images = image_results(location)
+	country = country_profile_for_location(location)
 	return JsonResponse({
 		'location': location,
 		'weather': weather,
-		'images': images,
+		'country_profile': country,
 	})
 
 
@@ -71,10 +71,18 @@ def lookup_point(request):
 		return JsonResponse({'error': 'Não foi possível identificar o ponto selecionado.'}, status=404)
 
 	weather = weather_for_location(location['lat'], location['lon'])
-	images = image_results(location)
+	country = country_profile_for_location(location)
 	return JsonResponse({
 		'location': location,
 		'weather': weather,
-		'images': images,
+		'country_profile': country,
 		'clicked': {'lat': float(lat), 'lon': float(lon)},
 	})
+
+
+def suggest_location(request):
+	q = (request.GET.get('q') or '').strip()
+	if not q:
+		return JsonResponse({'suggestions': []})
+	suggestions = place_suggestions(q)
+	return JsonResponse({'suggestions': suggestions})

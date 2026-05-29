@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import AppLoginView, DashboardView, RegisterView, logout_view, lookup_point, search_location
+from .views import AppLoginView, DashboardView, RegisterView, logout_view, lookup_point, search_location, suggest_location
 
 urlpatterns = [
     path('', DashboardView.as_view(), name='dashboard'),
@@ -9,4 +9,5 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('api/search/', search_location, name='search_location'),
     path('api/lookup/', lookup_point, name='lookup_point'),
+    path('api/suggest/', suggest_location, name='suggest_location'),
 ]

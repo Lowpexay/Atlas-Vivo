@@ -161,21 +161,109 @@ def _image_score(title: str, term: str) -> int:
 
 
 def weather_for_location(lat: float, lon: float) -> dict:
+    # Request current weather + daily forecast (7 days) from Open-Meteo
     payload = _safe_json_get(
         'https://api.open-meteo.com/v1/forecast',
         params={
             'latitude': lat,
             'longitude': lon,
-            'current': 'temperature_2m,relative_humidity_2m,pressure_msl,wind_speed_10m',
             'timezone': 'auto',
+            'current_weather': True,
+            'daily': 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode',
+            'hourly': 'relativehumidity_2m,pressure_msl',
+            'forecast_days': 7,
         },
     )
-    current = (payload or {}).get('current', {})
+
+    current = (payload or {}).get('current_weather') or {}
+    daily = (payload or {}).get('daily') or {}
+    hourly = (payload or {}).get('hourly') or {}
+
+    # try to pick humidity/pressure from hourly arrays at the current time
+    humidity = None
+    pressure = None
+    try:
+        current_time = current.get('time')
+        times = hourly.get('time') or []
+        if current_time and times:
+            # match exact time index if present, otherwise fall back to nearest
+            try:
+                idx = times.index(current_time)
+            except ValueError:
+                # find nearest by absolute difference
+                from datetime import datetime
+                fmt = '%Y-%m-%dT%H:%M' if len(times[0]) == 16 else '%Y-%m-%dT%H:%M:%S'
+                try:
+                    ct = datetime.fromisoformat(current_time)
+                    nearest = min(range(len(times)), key=lambda i: abs((datetime.fromisoformat(times[i]) - ct).total_seconds()))
+                    idx = nearest
+                except Exception:
+                    idx = None
+            if idx is not None:
+                rh = hourly.get('relativehumidity_2m') or []
+                prs = hourly.get('pressure_msl') or []
+                if idx < len(rh):
+                    humidity = rh[idx]
+                if idx < len(prs):
+                    pressure = prs[idx]
+    except Exception:
+        humidity = None
+        pressure = None
+
+    forecast = []
+    times = daily.get('time') or []
+    highs = daily.get('temperature_2m_max') or []
+    lows = daily.get('temperature_2m_min') or []
+    rain_probs = daily.get('precipitation_probability_max') or []
+    codes = daily.get('weathercode') or []
+
+    for i, dt in enumerate(times[:7]):
+        forecast.append({
+            'date': dt,
+            'high': highs[i] if i < len(highs) else None,
+            'low': lows[i] if i < len(lows) else None,
+            'rain_probability': rain_probs[i] if i < len(rain_probs) else None,
+            'weather_code': codes[i] if i < len(codes) else None,
+        })
+
+    # extract units from payload if available
+    daily_units = (payload or {}).get('daily_units') or {}
+    hourly_units = (payload or {}).get('hourly_units') or {}
+
+    def _unit_name(sym: str | None) -> str:
+        if not sym:
+            return ''
+        sym = sym.strip()
+        names = {
+            '°C': 'Celsius',
+            '°F': 'Fahrenheit',
+            '%': 'Percent',
+            'hPa': 'hPa',
+            'm/s': 'm/s',
+        }
+        return names.get(sym, sym)
+
+    temp_sym = hourly_units.get('temperature_2m') or daily_units.get('temperature_2m_max') or '°C'
+    hum_sym = hourly_units.get('relativehumidity_2m') or '%'
+    pres_sym = hourly_units.get('pressure_msl') or 'hPa'
+    wind_sym = hourly_units.get('windspeed_10m') or hourly_units.get('wind_speed_10m') or 'm/s'
+
+    units = {
+        'temperature': {'symbol': temp_sym, 'name': _unit_name(temp_sym)},
+        'humidity': {'symbol': hum_sym, 'name': _unit_name(hum_sym)},
+        'pressure': {'symbol': pres_sym, 'name': _unit_name(pres_sym)},
+        'wind_speed': {'symbol': wind_sym, 'name': _unit_name(wind_sym)},
+        'forecast_temp': {'symbol': daily_units.get('temperature_2m_max') or temp_sym, 'name': _unit_name(daily_units.get('temperature_2m_max') or temp_sym)},
+    }
+
     return {
-        'temperature': current.get('temperature_2m'),
-        'humidity': current.get('relative_humidity_2m'),
-        'pressure': current.get('pressure_msl'),
-        'wind_speed': current.get('wind_speed_10m'),
+        'temperature': current.get('temperature'),
+        'humidity': humidity,
+        'pressure': pressure,
+        'wind_speed': current.get('windspeed'),
+        'units': units,
+        'reference_time': current.get('time'),
+        'forecast': forecast,
     }
 
 
@@ -329,3 +417,84 @@ def image_results(location: dict) -> list[dict]:
             })
 
     return finalized[:4]
+
+
+def place_suggestions(query: str, limit: int = 5) -> list[dict]:
+    try:
+        response = requests.get(
+            'https://nominatim.openstreetmap.org/search',
+            params={'q': query, 'format': 'jsonv2', 'addressdetails': 1, 'limit': limit, 'accept-language': 'pt'},
+            headers={'User-Agent': USER_AGENT},
+            timeout=10,
+        )
+        response.raise_for_status()
+        items = response.json() or []
+        results = []
+        for item in items:
+            results.append({
+                'display_name': item.get('display_name'),
+                'lat': float(item.get('lat')) if item.get('lat') else None,
+                'lon': float(item.get('lon')) if item.get('lon') else None,
+                'raw': item,
+            })
+        return results
+    except requests.RequestException:
+        return []
+
+
+def country_profile_for_location(location: dict) -> dict | None:
+    raw = (location.get('raw') or {})
+    address = raw.get('address', {}) or {}
+    country_code = (address.get('country_code') or '').upper()
+    country_name = address.get('country') or location.get('country') or ''
+
+    session = requests.Session()
+    session.headers.update({'User-Agent': USER_AGENT})
+
+    try:
+        if country_code:
+            url = f'https://restcountries.com/v3.1/alpha/{country_code}'
+            resp = session.get(url, timeout=10)
+            resp.raise_for_status()
+            data = resp.json() or []
+            item = data[0] if isinstance(data, list) and data else (data if isinstance(data, dict) else None)
+        else:
+            url = f'https://restcountries.com/v3.1/name/{quote_plus(country_name)}'
+            resp = session.get(url, timeout=10)
+            resp.raise_for_status()
+            data = resp.json() or []
+            item = data[0] if data else None
+
+        if not item:
+            return None
+
+        # Parse currencies and languages
+        currencies = []
+        for code, cur in (item.get('currencies') or {}).items():
+            name = cur.get('name')
+            if name:
+                currencies.append(name)
+
+        languages = list((item.get('languages') or {}).values())
+
+        flag = ''
+        if item.get('flags'):
+            flag = item['flags'].get('png') or item['flags'].get('svg') or ''
+
+        return {
+            'name': item.get('name', {}).get('common') or country_name,
+            'official_name': item.get('name', {}).get('official') if item.get('name') else None,
+            'capital': (item.get('capital') or [None])[0],
+            'region': item.get('region'),
+            'subregion': item.get('subregion'),
+            'population': item.get('population'),
+            'area': item.get('area'),
+            'currencies': currencies,
+            'languages': languages,
+            'flag': flag,
+            'map': (item.get('maps') or {}).get('googleMaps') or (item.get('maps') or {}).get('openStreetMaps'),
+            'timezones': item.get('timezones') or [],
+            'continents': item.get('continents') or [],
+        }
+    except requests.RequestException:
+        return None
