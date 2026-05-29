@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: atlas-vivo
+    env: python
+    branch: main
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput"
+    startCommand: "gunicorn atlas_vivo.wsgi --workers 2 --bind 0.0.0.0:$PORT"
+    plan: free
+    healthCheckPath: /
+    envVars: []
